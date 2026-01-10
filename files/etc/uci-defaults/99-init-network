@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# 1. 从网桥解锁 lan1，让它作为物理 WAN 的载体
+uci del_list network.@device[0].ports='lan1'
+uci set network.wan.device='lan1'
+
+# 2. 预设多播接口模板 (这样你进后台点点鼠标就能拨号)
+# 这里仅设置物理接口，具体拨号交给 luci-app-syncdial
+uci set network.wan.proto='pppoe'
+uci set network.wan.username='你的宽带账号'
+uci set network.wan.password='你的宽带密码'
+
+# 3. 提交配置
+uci commit network
+exit 0
