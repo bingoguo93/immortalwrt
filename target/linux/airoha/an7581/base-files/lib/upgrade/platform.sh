@@ -15,14 +15,22 @@ platform_check_image() {
 	[ "$#" -gt 1 ] && return 1
 
 	case "$board" in
-	nokia,xg-040g-md)
-		nand_do_platform_check "$board" "$1"
-		return $?
-		;;
-	nokia,xg-040g-md-ubi)
-		fit_check_image "$1"
-		return $?
-		;;
+		nokia,xg-040g-md|\
+		nokia,xg-140g-md|\
+		nokia,xg-040g-tf|\
+		nokia,xg-140g-tf)
+			nand_do_platform_check "$board" "$1"
+			return $?
+			;;
+		nokia,xg-040g-md-ubi|\
+		superelectron,zn515xg-d-ubi)
+			fit_check_image "$1"
+			return $?
+			;;
+		*)
+			nand_do_platform_check "$board" "$1"
+			return $?
+			;;
 	esac
 
 	return 0
@@ -33,23 +41,12 @@ platform_do_upgrade() {
 
 	case "$board" in
 		gemtek,w1700k-ubi|\
-		nokia,xg-040g-md-ubi)
+		nokia,xg-040g-md-ubi|\
+		superelectron,zn515xg-d-ubi)
 			fit_do_upgrade "$1"
 			;;
 		*)
 			nand_do_upgrade "$1"
 			;;
-	esac
-}
-
-platform_pre_upgrade() {
-	local board=$(board_name)
-
-	case "$board" in
-	nokia,xg-040g-md)
-		nokia_initial_setup
-		;;
-	*)
-		;;
 	esac
 }

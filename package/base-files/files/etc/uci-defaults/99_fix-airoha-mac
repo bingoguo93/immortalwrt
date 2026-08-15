@@ -1,0 +1,65 @@
+#!/bin/sh
+
+. /lib/functions.sh
+
+generate_mac() {
+    local prefix="E0:3D:A6"
+    local suffix=$(openssl rand -hex 3 | sed 's/\(..\)/\1:/g; s/:$//')
+    echo "${prefix}:${suffix}"
+}
+
+config_load network
+
+found_br=0
+handle_br_lan() {
+    local section="$1"
+    local name
+    config_get name "$section" name
+
+    if [ "$name" = "br-lan" ]; then
+        uci set network."$section".macaddr="$mac"
+        found_br=1
+    fi
+}
+
+mac=$(generate_mac)
+config_foreach handle_br_lan device
+
+LAN_INTERFACES="eth0 eth1 lan2 lan3 lan4"
+
+for iface in $LAN_INTERFACES; do
+    # 新增接口存在性检查 
+    if ! ip link show dev "$iface" >/dev/null 2>&1; then 
+        echo "Interface $iface not found, skipping configuration"
+        continue
+    fi 
+
+    section_name="${iface}_mac_fix"
+    uci set network."$section_name"=device
+    uci set network."$section_name".name="$iface"
+
+    case "$iface" in
+        "eth0")  # eth0
+            mac0=$(generate_mac)
+            uci set network."$section_name".macaddr="$mac"
+            ;;
+        "eth1")  # eth1
+            mac1=$(generate_mac)
+            uci set network."$section_name".macaddr="$mac1"
+            ;;
+        "lan4")  # lan4
+            mac2=$(generate_mac)
+            uci set network."$section_name".macaddr="$mac2"
+            ;;
+        *) 
+            uci set network."$section_name".macaddr="$mac"
+            ;;
+    esac 
+
+done
+
+uci commit network
+
+/etc/init.d/network reload
+
+exit 0

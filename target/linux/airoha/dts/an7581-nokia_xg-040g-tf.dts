@@ -5,9 +5,6 @@
 #include "an7581-npu.dtsi"
 
 / {
-    model = "Nokia Bell XG-040G-MD";
-    compatible = "nokia,xg-040g-md", "airoha,an7581", "airoha,en7581";
+    model = "Nokia Bell XG-040G-TF";
+    compatible = "nokia,xg-040g-tf", "airoha,an7581", "airoha,en7581";
 };
-
-
-

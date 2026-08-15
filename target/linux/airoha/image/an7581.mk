@@ -155,19 +155,6 @@ define Device/nokia_xg-040g-md-common
 	kmod-usb-ledtrig-usbport kmod-usb3
 endef
 
-define Device/nokia_xg-040g-md
-  $(call Device/nokia_xg-040g-md-common)
-  DEVICE_DTS := an7581-nokia_xg-040g-md
-  DEVICE_DTS_CONFIG := config@1
-  IMAGE_SIZE := 131968k
-  KERNEL_SIZE := 8192k
-  IMAGES += factory-kernel.bin factory-rootfs.bin
-  IMAGE/factory-kernel.bin := append-kernel
-  IMAGE/factory-rootfs.bin := append-ubi | check-size
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-endef
-TARGET_DEVICES += nokia_xg-040g-md
-
 define Device/nokia_xg-040g-md-ubi
   $(call Device/nokia_xg-040g-md-common)
   DEVICE_VARIANT := (UBI)
@@ -188,3 +175,62 @@ define Device/nokia_xg-040g-md-ubi
   ARTIFACTS := bl31-uboot.fip preloader.bin
 endef
 TARGET_DEVICES += nokia_xg-040g-md-ubi
+
+define Device/nokia_xg-040g-md-common-nwrt
+  $(call Device/FitImageLzma)
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  UBINIZE_OPTS := -s 2048
+  KERNEL_IN_UBI := 1
+  UBOOTENV_IN_UBI := 1
+  DEVICE_PACKAGES := airoha-en7581-mt7996-npu-firmware kmod-gpio-button-hotplug kmod-leds-gpio \
+	kmod-phy-airoha-en8811h kmod-regulator-userspace-consumer
+endef
+
+define Device/nokia_xg-040g-md
+  $(call Device/nokia_xg-040g-md-common-nwrt)
+  DEVICE_VENDOR := Nokia Bell
+  DEVICE_MODEL := XG-040G-MD
+  DEVICE_DTS := an7581-nokia_xg-040g-md
+  DEVICE_PACKAGES += kmod-usb-ledtrig-usbport kmod-usb3
+  IMAGES += factory.bin sysupgrade.bin
+  IMAGE/factory.bin := append-kernel | pad-to $$$$(BLOCKSIZE) | append-ubi
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += nokia_xg-040g-md
+
+define Device/nokia_xg-140g-md
+  $(call Device/nokia_xg-040g-md-common-nwrt)
+  DEVICE_VENDOR := Nokia Bell
+  DEVICE_MODEL := XG-140G-MD
+  DEVICE_DTS := an7581-nokia_xg-140g-md
+  DEVICE_PACKAGES += kmod-usb-ledtrig-usbport kmod-usb3
+  IMAGES += factory.bin sysupgrade.bin
+  IMAGE/factory.bin := append-kernel | pad-to $$$$(BLOCKSIZE) | append-ubi
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  SOC := an7581
+endef
+TARGET_DEVICES += nokia_xg-140g-md
+
+define Device/nokia_xg-040g-tf
+  $(call Device/nokia_xg-040g-md-common-nwrt)
+  DEVICE_VENDOR := Nokia Bell
+  DEVICE_MODEL := XG-040G-TF
+  DEVICE_DTS := an7581-nokia_xg-040g-tf
+  IMAGES += factory.bin sysupgrade.bin
+  IMAGE/factory.bin := append-kernel | pad-to $$$$(BLOCKSIZE) | append-ubi
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += nokia_xg-040g-tf
+
+define Device/nokia_xg-140g-tf
+  $(call Device/nokia_xg-040g-md-common-nwrt)
+  DEVICE_VENDOR := Nokia Bell
+  DEVICE_MODEL := XG-140G-TF
+  DEVICE_DTS := an7581-nokia_xg-140g-tf
+  IMAGES += factory.bin sysupgrade.bin
+  IMAGE/factory.bin := append-kernel | pad-to $$$$(BLOCKSIZE) | append-ubi
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += nokia_xg-140g-tf
+
