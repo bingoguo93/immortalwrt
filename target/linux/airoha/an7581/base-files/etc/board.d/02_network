@@ -25,7 +25,7 @@ an7581_setup_interfaces()
 	nokia,xg-040g-tf|\
 	nokia,xg-140g-tf|\
 	superelectron,zn515xg-d-ubi)
-		ucidef_set_interfaces_lan_wan "lan2 lan3 lan4" "eth1"
+		ucidef_set_interfaces_lan_wan "eth1 lan2 lan3" "lan4"
 		;;
 	*)
 		echo "Unsupported hardware. Network interfaces not initialized"
