@@ -134,7 +134,7 @@ define Device/nokia_valyrian
   DEVICE_DTS := an7581-nokia-valyrian
   DEVICE_PACKAGES := kmod-spi-gpio kmod-gpio-nxp-74hc164 kmod-leds-gpio \
     kmod-i2c-gpio kmod-iio-richtek-rtq6056 \
-    kmod-sfp aeonsemi-as21xxx-firmware \
+    kmod-sfp kmod-phy-aeonsemi-as21xxx \
     kmod-mt7996-firmware airoha-en7581-mt7996-npu-firmware \
     kmod-usb3
   ARTIFACT/preloader.bin := an7581-preloader nokia_valyrian
@@ -154,19 +154,6 @@ define Device/nokia_xg-040g-md-common
 	kmod-phy-airoha-en8811h kmod-regulator-userspace-consumer \
 	kmod-usb-ledtrig-usbport kmod-usb3
 endef
-
-define Device/nokia_xg-040g-md
-  $(call Device/nokia_xg-040g-md-common)
-  DEVICE_DTS := an7581-nokia_xg-040g-md
-  DEVICE_DTS_CONFIG := config@1
-  IMAGE_SIZE := 131968k
-  KERNEL_SIZE := 8192k
-  IMAGES += factory-kernel.bin factory-rootfs.bin
-  IMAGE/factory-kernel.bin := append-kernel
-  IMAGE/factory-rootfs.bin := append-ubi | check-size
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-endef
-TARGET_DEVICES += nokia_xg-040g-md
 
 define Device/nokia_xg-040g-md-ubi
   $(call Device/nokia_xg-040g-md-common)
@@ -189,33 +176,84 @@ define Device/nokia_xg-040g-md-ubi
 endef
 TARGET_DEVICES += nokia_xg-040g-md-ubi
 
-define Device/quantum_q1000k-ubi
-  DEVICE_VENDOR := Quantum Fiber
-  DEVICE_MODEL := Q1000K
-  DEVICE_VARIANT := UBI
-  DEVICE_ALT0_VENDOR := CenturyLink
-  DEVICE_ALT0_MODEL := Q1000K
-  DEVICE_ALT0_VARIANT := UBI
-  DEVICE_ALT1_VENDOR := Lumen
-  DEVICE_ALT1_MODEL := Q1000K
-  DEVICE_ALT1_VARIANT := UBI
-  DEVICE_DTS := an7581-q1000k
-  DEVICE_PACKAGES := fitblk nand-utils rtl826x-firmware
-  UBINIZE_OPTS := -E 5
+define Device/nokia_xg-040g-md-common-nwrt
+  $(call Device/FitImageLzma)
   BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  UBOOTENV_IN_UBI := 1
   KERNEL_IN_UBI := 1
+  PAGESIZE := 2048
+  UBINIZE_OPTS := -s 2048
+  UBINIZE_PARTS := bosa ri
+  DEVICE_PACKAGES := airoha-en7581-mt7996-npu-firmware kmod-gpio-button-hotplug kmod-leds-gpio \
+	kmod-phy-airoha-en8811h kmod-regulator-userspace-consumer
+endef
+
+define Device/nokia_xg-040g-md
+  $(call Device/nokia_xg-040g-md-common-nwrt)
+  DEVICE_VENDOR := Nokia Bell
+  DEVICE_MODEL := XG-040G-MD
+  DEVICE_DTS := an7581-nokia_xg-040g-md
+  DEVICE_PACKAGES += kmod-usb-ledtrig-usbport kmod-usb3
+  IMAGES += factory.bin sysupgrade.bin
+  IMAGE/factory.bin := append-kernel | pad-to $$$$(BLOCKSIZE) | append-ubi
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += nokia_xg-040g-md
+
+define Device/nokia_xg-140g-md
+  $(call Device/nokia_xg-040g-md-common-nwrt)
+  DEVICE_VENDOR := Nokia Bell
+  DEVICE_MODEL := XG-140G-MD
+  DEVICE_DTS := an7581-nokia_xg-140g-md
+  DEVICE_PACKAGES += kmod-usb-ledtrig-usbport kmod-usb3
+  IMAGES += factory.bin sysupgrade.bin
+  IMAGE/factory.bin := append-kernel | pad-to $$$$(BLOCKSIZE) | append-ubi
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  SOC := an7581
+endef
+TARGET_DEVICES += nokia_xg-140g-md
+
+define Device/nokia_xg-040g-tf
+  $(call Device/nokia_xg-040g-md-common-nwrt)
+  DEVICE_VENDOR := Nokia Bell
+  DEVICE_MODEL := XG-040G-TF
+  DEVICE_DTS := an7581-nokia_xg-040g-tf
+  IMAGES += factory.bin sysupgrade.bin
+  IMAGE/factory.bin := append-kernel | pad-to $$$$(BLOCKSIZE) | append-ubi
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += nokia_xg-040g-tf
+
+define Device/nokia_xg-140g-tf
+  $(call Device/nokia_xg-040g-md-common-nwrt)
+  DEVICE_VENDOR := Nokia Bell
+  DEVICE_MODEL := XG-140G-TF
+  DEVICE_DTS := an7581-nokia_xg-140g-tf
+  IMAGES += factory.bin sysupgrade.bin
+  IMAGE/factory.bin := append-kernel | pad-to $$$$(BLOCKSIZE) | append-ubi
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += nokia_xg-140g-tf
+
+define Device/superelectron_zn515xg-d-ubi
+  $(call Device/nokia_xg-040g-md-common-nwrt)
+  DEVICE_VARIANT := (UBI)
+  DEVICE_VENDOR := SuperElectron
+  DEVICE_MODEL := ZN515XG-D
+  UBOOTENV_IN_UBI := 1
+  DEVICE_DTS := an7581-superelectron_zn515xg-d-ubi
   KERNEL := kernel-bin | gzip
   KERNEL_INITRAMFS := kernel-bin | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 128k
   KERNEL_INITRAMFS_SUFFIX := -recovery.itb
   IMAGES := sysupgrade.itb
-  # Match the Q1000K HTTP recovery upload buffer (256 MiB).
-  IMAGE_SIZE := 262144k
   IMAGE/sysupgrade.itb := append-kernel | \
 	fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | \
-	append-metadata | check-size
-  SOC := an7581
+	append-metadata
+  DEVICE_PACKAGES += airoha-en7581-mt7996-npu-firmware fitblk \
+			kmod-mt7916-firmware wpad-basic-mbedtls
+  ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot superelectron_zn515xg-d
+  ARTIFACT/preloader.bin := an7581-preloader superelectron_zn515xg-d
+  ARTIFACTS := bl31-uboot.fip preloader.bin
 endef
-TARGET_DEVICES += quantum_q1000k-ubi
+TARGET_DEVICES += superelectron_zn515xg-d-ubi
+

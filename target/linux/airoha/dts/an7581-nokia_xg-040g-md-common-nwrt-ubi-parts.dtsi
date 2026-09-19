@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+
+/ {
+	chosen {
+		bootargs = "console=ttyS0,115200 earlycon";
+		stdout-path = "serial0:115200n8";
+		bootargs-append = " ubi.mtd=rootfs,2048 rootfstype=squashfs ubi.block=0,rootfs ro root=/dev/ubiblock0_3 init=/etc/preinit";
+	};
+};
+
+&partitions {
+       partition@0 {
+           label = "bootloader";
+           reg = <0x0  0x00080000>;
+           read-only;
+       };
+
+       partition@80000 {
+           label = "env";
+           reg = <0x00080000 0x00080000>;
+       };
+
+	partition@100000 {
+			label = "ubi";
+			reg = <0x100000 0xff00000>;
+			compatible = "linux,ubi";
+
+			volumes {
+				pon_calibration_storage: ubi-volume-bosa {
+					volname = "bosa";
+
+					nvmem-layout {
+						compatible = "fixed-layout";
+						#address-cells = <1>;
+						#size-cells = <1>;
+
+						/* 备份头之后是 EN7572 直接使用的 512 字节 BOB */
+						pon_calibration: calibration@2 {
+							reg = <0x2 0x200>;
+						};
+					};
+				};
+
+				ubi-volume-ri {
+					volname = "ri";
+
+					nvmem-layout {
+						compatible = "fixed-layout";
+						#address-cells = <1>;
+						#size-cells = <1>;
+
+						pon_serial: pon-serial@1a {
+							reg = <0x1a 0xc>;
+						};
+	
+						macaddr_factory: macaddr@3e {
+							compatible = "mac-base";
+							reg = <0x3e 0x6>;
+							#nvmem-cell-cells = <1>;
+						};
+				};
+			};
+		};
+	};
+};
