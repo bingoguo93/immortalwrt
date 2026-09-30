@@ -258,16 +258,3 @@ define Device/superelectron_zn50xg-d-common
 	fit gzip $$(KDIR)/image-$$(DEVICE_DTS).dtb external-static-with-rootfs | \
 	append-metadata
 endef
-
-define Device/superelectron_zn515xg-d-ubi
-  $(call Device/superelectron_zn50xg-d-common)
-  DEVICE_MODEL := ZN515XG-D
-  DEVICE_DTS := an7581-superelectron_zn515xg-d-ubi
-  DEVICE_PACKAGES += airoha-en7581-mt7996-npu-firmware fitblk \
-			kmod-mt7916-firmware wpad-basic-mbedtls
-  ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot superelectron_zn515xg-d
-  ARTIFACT/preloader.bin := an7581-preloader superelectron_zn515xg-d
-  ARTIFACTS := bl31-uboot.fip preloader.bin
-endef
-TARGET_DEVICES += superelectron_zn515xg-d-ubi
-
