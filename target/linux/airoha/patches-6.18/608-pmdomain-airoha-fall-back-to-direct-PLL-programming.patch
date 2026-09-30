@@ -1,0 +1,291 @@
+From: OpenWrt XG-040G-MD
+Subject: [PATCH] pmdomain: airoha: fall back to direct PLL programming
+
+The driver drives the CPU frequency exclusively through the Airoha AVS SIP
+calls (0x82000301). Third party bootloaders such as the tcboot used on the
+Nokia XG-040G-MD ship an ATF that does not implement them: the SMC returns
+0, the clk reports a rate of 0, and cpufreq-dt gives up:
+
+	cpufreq: cpufreq_policy_online: ->get() failed
+	cpufreq-dt cpufreq-dt: failed register driver: -19
+
+The CPU is then pinned at whatever the bootloader configured and, because
+the cpufreq cooling devices are never registered, the passive trip point of
+the cpu-thermal zone has nothing to act on.
+
+Probe the SMC once and, when it is not answered, program the ARMPLL through
+the chip-SCU and MCUCFG register blocks instead. The registers are taken
+from the two reg entries of the cpufreq node, so boards whose firmware does
+implement the SIP calls are unaffected and need no DT change.
+
+--- a/drivers/pmdomain/mediatek/airoha-cpu-pmdomain.c
++++ b/drivers/pmdomain/mediatek/airoha-cpu-pmdomain.c
+@@ -3,6 +3,8 @@
+ #include <linux/arm-smccc.h>
+ #include <linux/bitfield.h>
+ #include <linux/clk-provider.h>
++#include <linux/delay.h>
++#include <linux/io.h>
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_domain.h>
+@@ -16,9 +18,46 @@
+ #define AIROHA_AVS_OP_GET_FREQ			(AIROHA_AVS_OP_BASE | \
+ 						 FIELD_PREP(AIROHA_AVS_OP_MASK, 0x2))
+ 
++/* CPU PLL registers, chip-SCU region */
++#define CPUPLL_CLK_MUX				0x1e0
++#define PLLRG_PROTECT				0x268
++#define CPUPLL_SDM_PCW				0x2b4
++#define CPUPLL_SDM_PCW_CHG			0x2b8
++
++#define CPUPLL_PCW_INT_MASK			GENMASK(30, 24)
++#define CPUPLL_XTAL_MHZ				50
++#define CPUPLL_CHG_BIT				BIT(0)
++#define CPUPLL_CHG_POSDIV_MASK			GENMASK(6, 4)
++#define PLLRG_PROTECT_MASK			GENMASK(7, 0)
++#define PLLRG_PROTECT_KEY			0x12
++
++/* MCUCFG clock switch registers */
++#define MCUCFG_CK_SWITCH_UNLOCK			0x640
++#define MCUCFG_CK_SOURCE_SEL			0x7c0
++
++#define MCUCFG_CK_UNLOCK_KEY			0x12
++#define MCUCFG_CK_SEL_MASK			GENMASK(10, 9)
++#define MCUCFG_CK_SEL_ARMPLL			1
++#define MCUCFG_CK_SEL_PLL2			3
++
++/*
++ * The genpd performance state is the opp-level from cpu_smcc_opp_table, which
++ * maps one to one onto cpu_opp_table in the SoC dtsi: state N is
++ * (BASE + N * STEP) MHz. Keep these in sync when changing the DT frequency
++ * table. Only used by the direct PLL path; the SMC path takes the raw state.
++ */
++#define AIROHA_CPU_PLL_BASE_MHZ			500
++#define AIROHA_CPU_PLL_STEP_MHZ			50
++#define AIROHA_CPU_PLL_MAX_STATE		14
++
+ struct airoha_cpu_pmdomain_priv {
+ 	struct clk_hw hw;
+ 	struct generic_pm_domain pd;
++	/* Set when the ATF implements the Airoha AVS SIP calls */
++	bool use_smc;
++	/* Only valid when use_smc is false */
++	void __iomem *pll_base;
++	void __iomem *mcucfg;
+ };
+ 
+ static int airoha_cpu_pmdomain_clk_determine_rate(struct clk_hw *hw,
+@@ -27,8 +66,7 @@
+ 	return 0;
+ }
+ 
+-static unsigned long airoha_cpu_pmdomain_clk_get(struct clk_hw *hw,
+-						 unsigned long parent_rate)
++static unsigned long airoha_cpu_smc_clk_get(void)
+ {
+ 	struct arm_smccc_res res;
+ 
+@@ -36,9 +74,36 @@
+ 			     0, 0, 0, 0, 0, 0, &res);
+ 
+ 	/* SMCCC returns freq in MHz */
+-	return (int)(res.a0 * 1000 * 1000);
++	return (unsigned long)(res.a0 * 1000 * 1000);
+ }
+ 
++/* Recover the current frequency straight from the CPU PLL dividers */
++static unsigned long airoha_cpu_pll_clk_get(struct airoha_cpu_pmdomain_priv *priv)
++{
++	unsigned int pcw_int, posdiv;
++	u32 pcw, chg;
++
++	pcw = readl(priv->pll_base + CPUPLL_SDM_PCW);
++	pcw_int = FIELD_GET(CPUPLL_PCW_INT_MASK, pcw);
++
++	chg = readl(priv->pll_base + CPUPLL_SDM_PCW_CHG);
++	posdiv = FIELD_GET(CPUPLL_CHG_POSDIV_MASK, chg);
++
++	return (unsigned long)pcw_int * CPUPLL_XTAL_MHZ * 1000000UL >> posdiv;
++}
++
++static unsigned long airoha_cpu_pmdomain_clk_get(struct clk_hw *hw,
++						 unsigned long parent_rate)
++{
++	struct airoha_cpu_pmdomain_priv *priv =
++		container_of(hw, struct airoha_cpu_pmdomain_priv, hw);
++
++	if (priv->use_smc)
++		return airoha_cpu_smc_clk_get();
++
++	return airoha_cpu_pll_clk_get(priv);
++}
++
+ /* Airoha CPU clk SMCC is always enabled */
+ static int airoha_cpu_pmdomain_clk_is_enabled(struct clk_hw *hw)
+ {
+@@ -51,8 +116,7 @@
+ 	.determine_rate = airoha_cpu_pmdomain_clk_determine_rate,
+ };
+ 
+-static int airoha_cpu_pmdomain_set_performance_state(struct generic_pm_domain *domain,
+-						     unsigned int state)
++static int airoha_cpu_smc_set_freq(unsigned int state)
+ {
+ 	struct arm_smccc_res res;
+ 
+@@ -63,6 +127,116 @@
+ 	return res.a0 & BIT(0) ? -EINVAL : 0;
+ }
+ 
++static void airoha_cpu_clock_switch(void __iomem *pll_base,
++				    void __iomem *mcucfg, unsigned int sel)
++{
++	u32 val;
++
++	if (sel != 0) {
++		val = readl(pll_base + CPUPLL_CLK_MUX);
++		writel(val | BIT(sel - 1), pll_base + CPUPLL_CLK_MUX);
++	}
++
++	val = readl(mcucfg + MCUCFG_CK_SWITCH_UNLOCK);
++	writel((val & ~0x1f) | MCUCFG_CK_UNLOCK_KEY,
++	       mcucfg + MCUCFG_CK_SWITCH_UNLOCK);
++
++	val = readl(mcucfg + MCUCFG_CK_SOURCE_SEL);
++	val &= ~MCUCFG_CK_SEL_MASK;
++	val |= FIELD_PREP(MCUCFG_CK_SEL_MASK, sel);
++	writel(val, mcucfg + MCUCFG_CK_SOURCE_SEL);
++}
++
++static int airoha_cpu_pll_set_freq(struct airoha_cpu_pmdomain_priv *priv,
++				   unsigned int state)
++{
++	void __iomem *base = priv->pll_base;
++	unsigned int freq_mhz, posdiv, pcw_int;
++	u32 val, old_chg, cleared;
++	unsigned long flags;
++
++	if (state > AIROHA_CPU_PLL_MAX_STATE)
++		return -EINVAL;
++
++	freq_mhz = AIROHA_CPU_PLL_BASE_MHZ + state * AIROHA_CPU_PLL_STEP_MHZ;
++
++	if (freq_mhz < 1000) {
++		posdiv = 1;
++		pcw_int = freq_mhz / (CPUPLL_XTAL_MHZ / 2);
++	} else {
++		posdiv = 0;
++		pcw_int = freq_mhz / CPUPLL_XTAL_MHZ;
++	}
++
++	local_irq_save(flags);
++
++	/* Park the CPU on PLL2 while ARMPLL is reprogrammed */
++	airoha_cpu_clock_switch(base, priv->mcucfg, MCUCFG_CK_SEL_PLL2);
++
++	val = readl(base + PLLRG_PROTECT);
++	writel((val & ~PLLRG_PROTECT_MASK) | PLLRG_PROTECT_KEY,
++	       base + PLLRG_PROTECT);
++
++	val = readl(base + CPUPLL_SDM_PCW);
++	val &= ~CPUPLL_PCW_INT_MASK;
++	val |= FIELD_PREP(CPUPLL_PCW_INT_MASK, pcw_int);
++	writel(val, base + CPUPLL_SDM_PCW);
++
++	/* Toggling CHG latches the new PCW and posdiv */
++	old_chg = readl(base + CPUPLL_SDM_PCW_CHG);
++	cleared = old_chg & ~(CPUPLL_CHG_POSDIV_MASK | CPUPLL_CHG_BIT);
++	if (old_chg & CPUPLL_CHG_BIT)
++		writel(cleared | FIELD_PREP(CPUPLL_CHG_POSDIV_MASK, posdiv),
++		       base + CPUPLL_SDM_PCW_CHG);
++	else
++		writel(cleared | FIELD_PREP(CPUPLL_CHG_POSDIV_MASK, posdiv) |
++		       CPUPLL_CHG_BIT, base + CPUPLL_SDM_PCW_CHG);
++
++	/* Wait for ARMPLL to relock */
++	udelay(20);
++
++	airoha_cpu_clock_switch(base, priv->mcucfg, MCUCFG_CK_SEL_ARMPLL);
++
++	val = readl(base + CPUPLL_CLK_MUX);
++	writel(val & ~BIT(2), base + CPUPLL_CLK_MUX);
++
++	val = readl(base + PLLRG_PROTECT);
++	writel(val & ~PLLRG_PROTECT_MASK, base + PLLRG_PROTECT);
++
++	local_irq_restore(flags);
++
++	return 0;
++}
++
++static int airoha_cpu_pmdomain_set_performance_state(struct generic_pm_domain *domain,
++						     unsigned int state)
++{
++	struct airoha_cpu_pmdomain_priv *priv =
++		container_of(domain, struct airoha_cpu_pmdomain_priv, pd);
++
++	if (priv->use_smc)
++		return airoha_cpu_smc_set_freq(state);
++
++	return airoha_cpu_pll_set_freq(priv, state);
++}
++
++/*
++ * Some third party bootloaders ship an ATF without the Airoha AVS SIP calls.
++ * The SMC then returns 0 (or SMCCC_UNKNOWN), the clk reports a rate of 0 and
++ * cpufreq-dt bails out with -ENODEV, leaving the CPU pinned at whatever the
++ * bootloader configured and the thermal cooling devices unregistered.
++ */
++static bool airoha_cpu_smc_available(void)
++{
++	struct arm_smccc_res res;
++
++	arm_smccc_1_1_invoke(AIROHA_SIP_AVS_HANDLE, AIROHA_AVS_OP_GET_FREQ,
++			     0, 0, 0, 0, 0, 0, &res);
++
++	/* Frequency is reported in MHz; 0 or absurdly large means unsupported */
++	return res.a0 > 0 && res.a0 < 2000;
++}
++
+ static int airoha_cpu_pmdomain_probe(struct platform_device *pdev)
+ {
+ 	struct airoha_cpu_pmdomain_priv *priv;
+@@ -74,14 +248,37 @@
+ 		.flags = CLK_GET_RATE_NOCACHE,
+ 	};
+ 	struct generic_pm_domain *pd;
++	unsigned long freq_hz;
+ 	int ret;
+ 
+ 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+ 	if (!priv)
+ 		return -ENOMEM;
+ 
++	if (airoha_cpu_smc_available()) {
++		priv->use_smc = true;
++	} else {
++		priv->pll_base = devm_platform_ioremap_resource(pdev, 0);
++		if (IS_ERR(priv->pll_base))
++			return dev_err_probe(dev, PTR_ERR(priv->pll_base),
++					     "ATF SMC unavailable and no chip-scu reg in DT\n");
++
++		priv->mcucfg = devm_platform_ioremap_resource(pdev, 1);
++		if (IS_ERR(priv->mcucfg))
++			return dev_err_probe(dev, PTR_ERR(priv->mcucfg),
++					     "ATF SMC unavailable and no mcucfg reg in DT\n");
++
++		dev_info(dev, "ATF SMC unavailable, programming the CPU PLL directly\n");
++	}
++
+ 	/* Init and register a get-only clk for Cpufreq */
+ 	priv->hw.init = &init;
++
++	freq_hz = airoha_cpu_pmdomain_clk_get(&priv->hw, 0);
++	if (!freq_hz || freq_hz > 2000000000UL)
++		return dev_err_probe(dev, -ENODEV,
++				     "implausible CPU frequency: %lu Hz\n", freq_hz);
++
+ 	ret = devm_clk_hw_register(dev, &priv->hw);
+ 	if (ret)
+ 		return ret;

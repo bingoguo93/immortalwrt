@@ -183,7 +183,7 @@ define Device/nokia_xg-040g-md-common-nwrt
   PAGESIZE := 2048
   UBINIZE_OPTS := -s 2048
   UBINIZE_PARTS := bosa ri
-  DEVICE_PACKAGES := airoha-en7581-mt7996-npu-firmware kmod-gpio-button-hotplug kmod-leds-gpio \
+  DEVICE_PACKAGES := airoha-en7581-npu-firmware kmod-airoha-en7572 kmod-gpio-button-hotplug kmod-leds-gpio \
 	kmod-phy-airoha-en8811h kmod-regulator-userspace-consumer
 endef
 
@@ -233,3 +233,41 @@ define Device/nokia_xg-140g-tf
   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
 endef
 TARGET_DEVICES += nokia_xg-140g-tf
+
+# Both models share the UBI boot chain and store device data in factory.
+define Device/superelectron_zn50xg-d-common
+  DEVICE_VARIANT := (UBI)
+  DEVICE_VENDOR := SuperElectron
+  DEVICE_DTS_CONFIG := config-1
+  # 0x8a000000 follows NPU/QDMA reserved memory and holds recovery decompression.
+  KERNEL_LOADADDR := 0x8a000000
+  BLOCKSIZE := 128k
+  DEVICE_PACKAGES := kmod-gpio-button-hotplug kmod-leds-gpio \
+    kmod-usb3 kmod-usb-ledtrig-usbport kmod-phy-airoha-en8811h \
+    kmod-airoha-en7572 kmod-airoha-xpon airoha-ponctl airoha-pond \
+    nand-utils ubi-utils $(AIROHA_USB_STORAGE_PACKAGES)
+  PAGESIZE := 2048
+  UBOOTENV_IN_UBI := 1
+  KERNEL_IN_UBI := 1
+  KERNEL := kernel-bin | gzip
+  KERNEL_INITRAMFS = kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(DEVICE_DTS).dtb with-initrd | pad-to 128k
+  KERNEL_INITRAMFS_SUFFIX := -recovery.itb
+  IMAGES := sysupgrade.itb
+  IMAGE/sysupgrade.itb = append-kernel | \
+	fit gzip $$(KDIR)/image-$$(DEVICE_DTS).dtb external-static-with-rootfs | \
+	append-metadata
+endef
+
+define Device/superelectron_zn515xg-d-ubi
+  $(call Device/superelectron_zn50xg-d-common)
+  DEVICE_MODEL := ZN515XG-D
+  DEVICE_DTS := an7581-superelectron_zn515xg-d-ubi
+  DEVICE_PACKAGES += airoha-en7581-mt7996-npu-firmware fitblk \
+			kmod-mt7916-firmware wpad-basic-mbedtls
+  ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot superelectron_zn515xg-d
+  ARTIFACT/preloader.bin := an7581-preloader superelectron_zn515xg-d
+  ARTIFACTS := bl31-uboot.fip preloader.bin
+endef
+TARGET_DEVICES += superelectron_zn515xg-d-ubi
+

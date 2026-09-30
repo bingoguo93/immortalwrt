@@ -6,35 +6,31 @@ IEEE_PATH="/sys/class/ieee80211"
 THERMAL_PATH="/sys/class/thermal"
 
 case "$DISTRIB_TARGET" in
-ipq40xx/*|ipq806x/*)
-	wifi_temp="$(awk '{printf("%.1f°C ", $0 / 1000)}' "$IEEE_PATH"/phy*/device/hwmon/hwmon*/temp1_input 2>"/dev/null" | awk '$1=$1')"
-	;;
-mediatek/mt7622)
-	wifi_temp="$(awk '{printf("%.1f°C ", $0 / 1000)}' "$IEEE_PATH"/wl*/hwmon*/temp1_input 2>"/dev/null" | awk '$1=$1')"
+"airoha"/*)
+	cpu_temp="$(awk '{printf("%.1f°C", $0 / 1000)}' "$THERMAL_PATH/thermal_zone0/temp" 2>/dev/null)"
+	wifi24_temp="$(awk '{printf("%.1f°C", $0 / 1000)}' "$IEEE_PATH"/phy0/hwmon*/temp1_input 2>/dev/null | head -n1)"
+	wifi5_temp="$(awk '{printf("%.1f°C", $0 / 1000)}' "$IEEE_PATH"/phy1/hwmon*/temp1_input 2>/dev/null | head -n1)"
+	pon_temp="$(ponctl status 2>/dev/null | awk -F': ' '/temperature_celsius/ {printf "%.1f°C", $2}')"
+
+	out=""
+	[ -n "$cpu_temp" ] && out="CPU: $cpu_temp"
+	[ -n "$wifi24_temp" ] && out="${out:+$out | }WIFI 2.4G: $wifi24_temp"
+	[ -n "$wifi5_temp" ] && out="${out:+$out | }WIFI 5G: $wifi5_temp"
+	[ -n "$pon_temp" ] && out="${out:+$out | }PON: $pon_temp"
+	[ -n "$out" ] && echo -n "$out" || echo -n "No temperature info"
 	;;
 *)
 	wifi_temp="$(awk '{printf("%.1f°C ", $0 / 1000)}' "$IEEE_PATH"/phy*/hwmon*/temp1_input 2>"/dev/null" | awk '$1=$1')"
-	;;
-esac
-
-case "$DISTRIB_TARGET" in
-ipq40xx/*)
-	if [ -e "$IEEE_PATH/phy0/hwmon0/temp1_input" ]; then
-		mt76_temp="$(awk -F ': ' '{print $2}' "$IEEE_PATH/phy0/hwmon0/temp1_input" 2>"/dev/null")°C"
-	fi
-	[ -z "$mt76_temp" ] || wifi_temp="${wifi_temp:+$wifi_temp }$mt76_temp"
-	;;
-*)
 	cpu_temp="$(awk '{printf("%.1f°C", $0 / 1000)}' "$THERMAL_PATH/thermal_zone0/temp" 2>"/dev/null")"
+
+	if [ -n "$cpu_temp" ] && [ -z "$wifi_temp" ]; then
+		echo -n "CPU: $cpu_temp"
+	elif [ -z "$cpu_temp" ] && [ -n "$wifi_temp" ]; then
+		echo -n "WiFi: $wifi_temp"
+	elif [ -n "$cpu_temp" ] && [ -n "$wifi_temp" ]; then
+		echo -n "CPU: $cpu_temp, WiFi: $wifi_temp"
+	else
+		echo -n "No temperature info"
+	fi
 	;;
 esac
-
-if [ -n "$cpu_temp" ] && [ -z "$wifi_temp" ]; then
-	echo -n "CPU: $cpu_temp"
-elif [ -z "$cpu_temp" ] && [ -n "$wifi_temp" ]; then
-	echo -n "WiFi: $wifi_temp"
-elif [ -n "$cpu_temp" ] && [ -n "$wifi_temp" ]; then
-	echo -n "CPU: $cpu_temp, WiFi: $wifi_temp"
-else
-	echo -n "No temperature info"
-fi

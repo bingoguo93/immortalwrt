@@ -8,6 +8,7 @@
 
 / {
 	aliases {
+		pon-calibration = &pon_calibration_storage;
 		label-mac-device = &gdm1;
 
 		led-boot = &led_power_green;
@@ -18,12 +19,13 @@
 		serial0 = &uart1;
 	};
 
-	gpio-keys {
+	keys {
 		compatible = "gpio-keys";
 
-		button-0 {
+		key-reset {
 			label = "reset";
 			linux,code = <KEY_RESTART>;
+			/* The reset key is connected to active-low GPIO0. */
 			gpios = <&en7581_pinctrl 0 GPIO_ACTIVE_LOW>;
 			debounce-interval = <60>;
 		};
@@ -32,29 +34,39 @@
 	leds {
 		compatible = "gpio-leds";
 
-		led_power_green: led-0 {
+		led_power_green: led-power {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_POWER;
+			/* The active-low power LED is connected to GPIO17. */
 			gpios = <&en7581_pinctrl 17 GPIO_ACTIVE_LOW>;
+			default-state = "on";
 			panic-indicator;
 		};
 
-		led-1 {
+		led-pon {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_WAN;
+			/* The active-low PON status LED is connected to GPIO18. */
 			gpios = <&en7581_pinctrl 18 GPIO_ACTIVE_LOW>;
+			/* Registration maps O1-O3 to fast blink, O4 to slow blink, and O5 on. */
+			linux,default-trigger = "pon0-registration";
 		};
 
-		led-2 {
+		led-los {
 			color = <LED_COLOR_ID_RED>;
 			function = LED_FUNCTION_WAN;
+			/* The active-low LOS LED is connected to GPIO19. */
 			gpios = <&en7581_pinctrl 19 GPIO_ACTIVE_LOW>;
+			/* The pon0-los trigger drives the LOS LED. */
+			linux,default-trigger = "pon0-los";
 		};
 
-		led-3 {
+		led-internet {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_WAN_ONLINE;
+			/* The active-low Internet LED is connected to GPIO20. */
 			gpios = <&en7581_pinctrl 20 GPIO_ACTIVE_LOW>;
+			linux,default-trigger = "pon0-online";
 		};
 
 		led-4 {
@@ -106,6 +118,14 @@
 
 &en7581_pinctrl {
 	gpio-ranges = <&en7581_pinctrl 0 13 50>;
+
+	/* Select the PON mux while leaving GPIO38 under optical frontend control. */
+	pon_pins: pon-pins {
+		mux {
+			function = "pon";
+			groups = "pon_tx_disable_gpio";
+		};
+	};
 
 	mdio_pins: mdio-pins {
 		mux {
@@ -171,6 +191,24 @@
 };
 
 &i2c0 {
+
+	status = "okay";
+
+	/* The 0x50 window loads MD32 while the frontend owns runtime window 0x51. */
+	en7572: optical-front-end@50 {
+		compatible = "airoha,en7572";
+		reg = <0x50>;
+
+		/* GPIO38 is the active-high PHY_TX_POWER_DISABLE signal. */
+		tx-disable-gpios = <&en7581_pinctrl 38 GPIO_ACTIVE_HIGH>;
+
+		/* The 512 bytes after the bosa header contain per-device optical data. */
+		nvmem-cells = <&pon_calibration>;
+		nvmem-cell-names = "calibration";
+	};
+};
+
+&npu {
 	status = "okay";
 };
 
@@ -181,8 +219,9 @@
 		reg = <0xf>;
 
 		reset-gpios = <&en7581_pinctrl 31 GPIO_ACTIVE_LOW>;
-		reset-assert-us = <10000>;
-		reset-deassert-us = <20000>;
+		/* Hold reset for 1 second and wait 100 ms before probing EN8811H. */
+		reset-assert-us = <1000000>;
+		reset-deassert-us = <100000>;
 
 		leds {
 			#address-cells = <1>;
@@ -199,7 +238,14 @@
 	};
 };
 
-&npu {
+&xpon_mac {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pon_pins>;
+	optical-front-end = <&en7572>;
+	nvmem-cells = <&pon_serial>;
+	nvmem-cell-names = "pon-serial";
+	/* data-path references the GDM carrying service GEM traffic. */
+	data-path = <&gdm2>;
 	status = "okay";
 };
 
@@ -235,6 +281,27 @@
 
 	nvmem-cell-names = "mac-address";
 	nvmem-cells = <&macaddr_factory (0)>;
+};
+
+&gdm2 {
+	/* GDM2 carries the PON GEM data plane on AN7581 and AN7583. */
+	airoha,pon-data-path;
+	/* WAN uses the eth0 MAC stored at RI offset 0x3e. */
+	nvmem-cell-names = "mac-address";
+	nvmem-cells = <&macaddr_factory (0)>;
+	status = "okay";
+};
+
+&gdm4 {
+	status = "okay";
+
+	phy-handle = <&en8811>;
+	phy-mode = "2500base-x";
+
+	openwrt,netdev-name = "lan1";
+
+	nvmem-cell-names = "mac-address";
+	nvmem-cells = <&macaddr_factory (1)>;
 };
 
 &switch {
@@ -310,16 +377,6 @@
 	active-low;
 };
 
-&gdm4 {
-	status = "okay";
-
-	phy-handle = <&en8811>;
-	phy-mode = "2500base-x";
-
-	nvmem-cell-names = "mac-address";
-	nvmem-cells = <&macaddr_factory (1)>;
-};
-
 &usb0 {
 	status = "okay";
 
@@ -348,4 +405,10 @@
 		reg = <1>;
 		#trigger-source-cells = <0>;
 	};
+};
+
+&cpufreq {
+	reg = <0x0 0x1fa20000 0x0 0x2c0>,	/* chip-scu */
+	      <0x0 0x1efbe000 0x0 0x800>;	/* mcucfg */
+	reg-names = "chip-scu", "mcucfg";
 };

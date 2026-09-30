@@ -31,6 +31,7 @@
 
 					nvmem-layout {
 						compatible = "fixed-layout";
+
 						#address-cells = <1>;
 						#size-cells = <1>;
 
@@ -41,11 +42,12 @@
 					};
 				};
 
-				ubi-volume-ri {
+			ubi-volume-factory {
 					volname = "ri";
 
 					nvmem-layout {
 						compatible = "fixed-layout";
+
 						#address-cells = <1>;
 						#size-cells = <1>;
 
