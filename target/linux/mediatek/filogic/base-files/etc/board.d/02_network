@@ -52,6 +52,7 @@ mediatek_setup_interfaces()
 		;;
 	asus,rt-ax52|\
 	asus,rt-ax59u|\
+	asus,rt-ax59u-ubi|\
 	asus,zenwifi-bt8|\
 	asus,zenwifi-bt8-ubootmod|\
 	buffalo,wsr-3000ax4p|\
@@ -130,6 +131,9 @@ mediatek_setup_interfaces()
 	bananapi,bpi-r4-poe)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" "wan sfp-wan"
 		;;
+	bananapi,bpi-r4-pro-4e)
+		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4 lan5 lan6 sfp-lan" "wan"
+		;;
 	bananapi,bpi-r4-pro-8x)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4 lan5 lan6" "wan"
 		;;
@@ -149,7 +153,11 @@ mediatek_setup_interfaces()
 	cudy,re3000-v1|\
 	kebidumei,ax3000-u22|\
 	keenetic,kap-630|\
+	keenetic,kn-3411|\
+	keenetic,kn-4410|\
 	netcraze,nap-630|\
+	netcraze,nc-3411|\
+	netcraze,nc-4410|\
 	netgear,eax17|\
 	netgear,wax220|\
 	openfi,6c|\
@@ -198,6 +206,7 @@ mediatek_setup_interfaces()
 	dlink,aquila-pro-ai-m60-a1)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" internet
 		;;
+	cudy,p2-v1|\
 	comfast,cf-wr632ax|\
 	comfast,cf-wr632ax-ubi|\
 	comfast,cf-wr632ax-ubootmod|\
@@ -259,7 +268,6 @@ mediatek_setup_interfaces()
 	tplink,tl-7dr7230-v2)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" wan
 		;;
-
 	tplink,tl-7dr7299-v1)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4 lan5 lan6 sfp" "eth1"
 		;;

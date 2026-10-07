@@ -2,9 +2,10 @@ include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
 PKG_VERSION:=2026.07
-PKG_RELEASE:=1
+PKG_RELEASE:=3
 PKG_HASH:=78e8bfc382fe388f9b55aa1daf8c563522a037779b5d4c349d1415e381f1243e
 PKG_BUILD_DEPENDS:=!(TARGET_ramips||TARGET_mediatek_mt7623):arm-trusted-firmware-tools/host
+PKG_PARALLEL_VARIANTS:=1
 
 ifdef CONFIG_TARGET_ramips
 UBOOT_USE_INTREE_DTC:=1
@@ -605,6 +606,14 @@ define U-Boot/mt7981_jcg_q30-pro
   DEPENDS:=+trusted-firmware-a-mt7981-spim-nand-ddr3
 endef
 
+define U-Boot/mt7981_keenetic_kn-1012
+  NAME:=Keenetic KN-1012 (chainload)
+  BUILD_SUBTARGET:=filogic
+  BUILD_DEVICES:=keenetic_kn-1012 netcraze_nc-1012
+  UBOOT_CONFIG:=mt7981_keenetic_kn-1012
+  UBOOT_IMAGE:=u-boot.bin
+endef
+
 define U-Boot/mt7981_konka_komi-a31
   NAME:=Konka KOMI A31
   BUILD_SUBTARGET:=filogic
@@ -941,6 +950,18 @@ define U-Boot/mt7986_acer_predator-w6x
   BL2_SOC:=mt7986
   BL2_DDRTYPE:=ddr4
   DEPENDS:=+trusted-firmware-a-mt7986-spim-nand-ddr4
+endef
+
+define U-Boot/mt7986_asus_rt-ax59u
+  NAME:=ASUS RT-AX59U
+  BUILD_SUBTARGET:=filogic
+  BUILD_DEVICES:=asus_rt-ax59u-ubi
+  UBOOT_CONFIG:=mt7986_asus_rt-ax59u
+  UBOOT_IMAGE:=u-boot.fip
+  BL2_BOOTDEV:=spim-nand-ubi-1m
+  BL2_SOC:=mt7986
+  BL2_DDRTYPE:=ddr4
+  DEPENDS:=+trusted-firmware-a-mt7986-spim-nand-ubi-1m-ddr4
 endef
 
 define U-Boot/mt7986_bananapi_bpi-r3-emmc
@@ -1352,6 +1373,42 @@ define U-Boot/mt7988_bananapi_bpi-r4-poe-snand
   DEPENDS:=+trusted-firmware-a-mt7988-spim-nand-ubi-comb +trusted-firmware-a-mt7988-spim-nand-ubi-comb-4bg
 endef
 
+define U-Boot/mt7988_bananapi_bpi-r4-pro-4e-emmc
+  NAME:=BananaPi BPi-R4 Pro 4E
+  BUILD_SUBTARGET:=filogic
+  BUILD_DEVICES:=bananapi_bpi-r4-pro-4e
+  UBOOT_CONFIG:=mt7988a_bananapi_bpi-r4-pro-4e-emmc
+  UBOOT_IMAGE:=u-boot.fip
+  BL2_BOOTDEV:=emmc
+  BL2_SOC:=mt7988
+  BL2_DDRTYPE:=comb
+  DEPENDS:=+trusted-firmware-a-mt7988-emmc-comb
+endef
+
+define U-Boot/mt7988_bananapi_bpi-r4-pro-4e-sdmmc
+  NAME:=BananaPi BPi-R4 Pro 4E
+  BUILD_SUBTARGET:=filogic
+  BUILD_DEVICES:=bananapi_bpi-r4-pro-4e
+  UBOOT_CONFIG:=mt7988a_bananapi_bpi-r4-pro-4e-sdmmc
+  UBOOT_IMAGE:=u-boot.fip
+  BL2_BOOTDEV:=sdmmc
+  BL2_SOC:=mt7988
+  BL2_DDRTYPE:=comb
+  DEPENDS:=+trusted-firmware-a-mt7988-sdmmc-comb
+endef
+
+define U-Boot/mt7988_bananapi_bpi-r4-pro-4e-snand
+  NAME:=BananaPi BPi-R4 Pro 4E
+  BUILD_SUBTARGET:=filogic
+  BUILD_DEVICES:=bananapi_bpi-r4-pro-4e
+  UBOOT_CONFIG:=mt7988a_bananapi_bpi-r4-pro-4e-snand
+  UBOOT_IMAGE:=u-boot.fip
+  BL2_BOOTDEV:=spim-nand-ubi
+  BL2_SOC:=mt7988
+  BL2_DDRTYPE:=comb
+  DEPENDS:=+trusted-firmware-a-mt7988-spim-nand-ubi-comb
+endef
+
 define U-Boot/mt7988_bananapi_bpi-r4-pro-8x-emmc
   NAME:=BananaPi BPi-R4 Pro 8X
   BUILD_SUBTARGET:=filogic
@@ -1562,6 +1619,7 @@ UBOOT_TARGETS := \
 	mt7981_h3c_magic-nx30-pro \
 	mt7981_imou_hx21 \
 	mt7981_jcg_q30-pro \
+	mt7981_keenetic_kn-1012 \
 	mt7981_konka_komi-a31 \
 	mt7981_konka_komi-a31-emmc \
 	mt7981_konka_komi-a31-nor \
@@ -1589,6 +1647,7 @@ UBOOT_TARGETS := \
 	mt7981_xiaomi_mi-router-ax3000t \
 	mt7981_xiaomi_mi-router-wr30u \
 	mt7986_acer_predator-w6x \
+	mt7986_asus_rt-ax59u \
 	mt7986_bananapi_bpi-r3-emmc \
 	mt7986_bananapi_bpi-r3-sdmmc \
 	mt7986_bananapi_bpi-r3-snand \
@@ -1624,6 +1683,9 @@ UBOOT_TARGETS := \
 	mt7988_bananapi_bpi-r4-poe-emmc \
 	mt7988_bananapi_bpi-r4-poe-sdmmc \
 	mt7988_bananapi_bpi-r4-poe-snand \
+	mt7988_bananapi_bpi-r4-pro-4e-emmc \
+	mt7988_bananapi_bpi-r4-pro-4e-sdmmc \
+	mt7988_bananapi_bpi-r4-pro-4e-snand \
 	mt7988_bananapi_bpi-r4-pro-8x-emmc \
 	mt7988_bananapi_bpi-r4-pro-8x-sdmmc \
 	mt7988_bananapi_bpi-r4-pro-8x-snand \
@@ -1647,13 +1709,15 @@ ifdef CONFIG_TARGET_mediatek
 UBOOT_MAKE_FLAGS += $(UBOOT_IMAGE:.fip=.bin)
 endif
 
+FIP_BL31=$(STAGING_DIR_IMAGE)/$(if $(BL2_SOC),$(BL2_SOC),$(BUILD_SUBTARGET))-$(BL2_BOOTDEV)-$(if $(BL2_DDRTYPE),$(BL2_DDRTYPE)-)$(if $(BL2_DDRBLOB),$(BL2_DDRBLOB)ddr-)bl31.bin
+
 define Build/fip-image
 	$(if $(FIP_COMPRESS),\
-		xz -f -e -k -9 -C crc32 $(STAGING_DIR_IMAGE)/$(if $(BL2_SOC),$(BL2_SOC),$(BUILD_SUBTARGET))-$(BL2_BOOTDEV)-$(if $(BL2_DDRTYPE),$(BL2_DDRTYPE)-)$(if $(BL2_DDRBLOB),$(BL2_DDRBLOB)ddr-)bl31.bin ;\
+		xz -e -9 -C crc32 -c $(FIP_BL31) > $(PKG_BUILD_DIR)/bl31.bin.xz ;\
 		xz -f -e -k -9 -C crc32 $(PKG_BUILD_DIR)/u-boot.bin \
 	)
 	$(STAGING_DIR_HOST)/bin/fiptool create \
-		--soc-fw $(STAGING_DIR_IMAGE)/$(if $(BL2_SOC),$(BL2_SOC),$(BUILD_SUBTARGET))-$(BL2_BOOTDEV)-$(if $(BL2_DDRTYPE),$(BL2_DDRTYPE)-)$(if $(BL2_DDRBLOB),$(BL2_DDRBLOB)ddr-)bl31.bin$(if $(FIP_COMPRESS),.xz) \
+		--soc-fw $(if $(FIP_COMPRESS),$(PKG_BUILD_DIR)/bl31.bin.xz,$(FIP_BL31)) \
 		--nt-fw $(PKG_BUILD_DIR)/u-boot.bin$(if $(FIP_COMPRESS),.xz) \
 		$(PKG_BUILD_DIR)/u-boot.fip
 endef
@@ -1688,3 +1752,9 @@ define Build/InstallDev
 endef
 
 $(eval $(call BuildPackage/U-Boot))
+
+# The fip contains BL31 from trusted-firmware-a, so build it again if that
+# changed.
+ifeq ($(DUMP)$(UBOOT_IMAGE),u-boot.fip)
+$(STAMP_BUILT): $(wildcard $(FIP_BL31))
+endif

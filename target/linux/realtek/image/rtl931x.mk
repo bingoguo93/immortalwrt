@@ -66,6 +66,26 @@ define Device/plasmacloud_psx28
 endef
 TARGET_DEVICES += plasmacloud_psx28
 
+define Device/sirivision_sr-st31212f
+  SOC := rtl9313
+  UIMAGE_MAGIC := 0x93000000
+  DEVICE_VENDOR := Sirivision
+  DEVICE_MODEL := SR-ST31212F
+  IMAGE_SIZE := 13312k
+  $(Device/kernel-lzma)
+endef
+TARGET_DEVICES += sirivision_sr-st31212f
+
+define Device/ubnt_usw-pro-xg-10-poe
+  SOC := rtl9313
+  DEVICE_VENDOR := Ubiquiti
+  DEVICE_MODEL := UniFi USW Pro XG 10 PoE
+  IMAGE_SIZE := 30272k
+  DEVICE_PACKAGES := rtl826x-firmware kmod-hwmon-adt7475 kmod-pse-realtek-mcu-i2c
+  $(Device/kernel-lzma)
+endef
+TARGET_DEVICES += ubnt_usw-pro-xg-10-poe
+
 define Device/ubnt_usw-pro-xg-8-poe
   SOC := rtl9313
   DEVICE_VENDOR := Ubiquiti

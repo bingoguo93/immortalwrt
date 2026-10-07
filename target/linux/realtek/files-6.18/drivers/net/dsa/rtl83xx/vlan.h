@@ -10,6 +10,40 @@
 
 struct rtl838x_switch_priv;
 
+/* VLAN definitions shared with family and debug code. */
+#define RTL838X_VLAN_CTRL			(0x3a74)
+#define RTL838X_VLAN_PORT_EGR_FLTR		(0x3a84)
+#define RTL838X_VLAN_PORT_IGR_FLTR		(0x3a7c)
+#define RTL838X_VLAN_PROFILE_MAX		7
+
+#define RTL839X_VLAN_CTRL			(0x26d4)
+#define RTL839X_VLAN_PORT_EGR_FLTR		(0x27c4)
+#define RTL839X_VLAN_PORT_IGR_FLTR		(0x27b4)
+#define RTL839X_VLAN_PROFILE_MAX		7
+
+#define RTL930X_VLAN_CTRL			(0x82d4)
+#define RTL930X_VLAN_PORT_EGR_FLTR		(0x83c8)
+#define RTL930X_VLAN_PORT_IGR_FLTR		(0x83c0)
+#define RTL930X_VLAN_PROFILE_MAX		7
+
+#define RTL931X_VLAN_CTRL			(0x94e4)
+#define RTL931X_VLAN_PORT_EGR_FLTR		(0x96c4)
+#define RTL931X_VLAN_PORT_IGR_FLTR		(0x96b4)
+#define RTL931X_VLAN_PROFILE_MAX		15
+
+#define MAX_VLANS				4096
+
+enum igr_filter {
+	IGR_FORWARD = 0,
+	IGR_DROP = 1,
+	IGR_TRAP = 2,
+};
+
+enum egr_filter {
+	EGR_DISABLE = 0,
+	EGR_ENABLE = 1,
+};
+
 enum pbvlan_type {
 	PBVLAN_TYPE_INNER = 0,
 	PBVLAN_TYPE_OUTER,
