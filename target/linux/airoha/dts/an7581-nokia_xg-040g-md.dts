@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only OR MIT
 
-#include "an7581-nokia_xg-040g-md-common.dtsi"
-#include "an758x-nokia_xg-040g-stock-parts.dtsi"
+#include "an7581-nokia_xg-040g-md-common-nwrt.dtsi"
+#include "an7581-nokia_xg-040g-md-common-nwrt-ubi-parts.dtsi"
+#include "an7581-npu.dtsi"
 
 / {
-	model = "Nokia XG-040G-MD";
-	compatible = "nokia,xg-040g-md", "airoha,an7581", "airoha,en7581";
+    model = "Nokia Bell XG-040G-MD";
+    compatible = "nokia,xg-040g-md", "airoha,an7581", "airoha,en7581";
 };
+
+
+

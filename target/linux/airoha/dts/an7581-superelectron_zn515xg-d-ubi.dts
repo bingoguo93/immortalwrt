@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+
+#include "an7581-superelectron_zn515xg-d-common.dtsi"
+#include "an7581-superelectron_zn515xg-d-ubi-parts.dtsi"
+#include "an7581-npu.dtsi"
+
+/ {
+    model = "SuperElectron ZN515XG-D";
+    compatible = "superelectron,zn515xg-d-ubi", "airoha,an7581", "airoha,en7581";
+};
+
+
+

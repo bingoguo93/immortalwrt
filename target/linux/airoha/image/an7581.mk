@@ -130,70 +130,80 @@ define Device/nokia_xg-040g-md-common
   UBINIZE_OPTS := -E 5
   DEVICE_PACKAGES := kmod-gpio-button-hotplug kmod-leds-gpio \
 	kmod-phy-airoha-en8811h kmod-regulator-userspace-consumer \
-	kmod-usb-ledtrig-usbport kmod-usb3 automount
+    kmod-usb-ledtrig-usbport kmod-usb3 kmod-airoha-en7572 \
+    kmod-airoha-xpon airoha-ponctl airoha-pond \
+    $(AIROHA_USB_STORAGE_PACKAGES)
 endef
 
-define Device/nokia_xg-040g-md
+define Device/nokia_xg-040g-tf-common
   $(call Device/nokia_xg-040g-md-common)
-  DEVICE_DTS := an7581-nokia_xg-040g-md
-  DEVICE_DTS_CONFIG := config@1
-  IMAGE_SIZE := 131968k
-  KERNEL_SIZE := 8192k
-  IMAGES += factory-kernel.bin factory-rootfs.bin
-  IMAGE/factory-kernel.bin := append-kernel
-  IMAGE/factory-rootfs.bin := append-ubi | check-size
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_MODEL := XG-040G-TF
+  DEVICE_PACKAGES += -kmod-regulator-userspace-consumer \
+    -kmod-usb-ledtrig-usbport -kmod-usb3 \
+    $(addprefix -,$(AIROHA_USB_STORAGE_PACKAGES))
 endef
-TARGET_DEVICES += nokia_xg-040g-md
+
+define Device/nokia_xg-040g-md-ubi-images
+  UBOOTENV_IN_UBI := 1
+  KERNEL_IN_UBI := 1
+  KERNEL := kernel-bin | gzip
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(DEVICE_DTS).dtb with-initrd | pad-to 128k
+  KERNEL_INITRAMFS_SUFFIX := -recovery.itb
+  IMAGES := sysupgrade.itb
+  IMAGE/sysupgrade.itb := append-kernel | \
+	fit gzip $$(KDIR)/image-$$(DEVICE_DTS).dtb external-static-with-rootfs | \
+	append-metadata
+  DEVICE_PACKAGES += fitblk
+endef
 
 define Device/nokia_xg-040g-md-ubi
   $(call Device/nokia_xg-040g-md-common)
   DEVICE_VARIANT := (UBI)
   DEVICE_DTS := an7581-nokia_xg-040g-md-ubi
-  UBOOTENV_IN_UBI := 1
-  KERNEL_IN_UBI := 1
-  KERNEL := kernel-bin | gzip
-  KERNEL_INITRAMFS := kernel-bin | lzma | \
-	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 128k
-  KERNEL_INITRAMFS_SUFFIX := -recovery.itb
-  IMAGES := sysupgrade.itb
-  IMAGE/sysupgrade.itb := append-kernel | \
-	fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | \
-	append-metadata
-  DEVICE_PACKAGES += fitblk
-  ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_xg-040g-md
-  ARTIFACT/preloader.bin := an7581-preloader nokia_xg-040g-md
-  ARTIFACTS := bl31-uboot.fip preloader.bin
+  SUPPORTED_DEVICES += nokia,xg-040g-md-ubi-usb-sfp
+  $(call Device/nokia_xg-040g-md-ubi-images)
 endef
 TARGET_DEVICES += nokia_xg-040g-md-ubi
 
-define Device/quantum_q1000k-ubi
-  DEVICE_VENDOR := Quantum Fiber
-  DEVICE_MODEL := Q1000K
-  DEVICE_VARIANT := UBI
-  DEVICE_ALT0_VENDOR := CenturyLink
-  DEVICE_ALT0_MODEL := Q1000K
-  DEVICE_ALT0_VARIANT := UBI
-  DEVICE_ALT1_VENDOR := Lumen
-  DEVICE_ALT1_MODEL := Q1000K
-  DEVICE_ALT1_VARIANT := UBI
-  DEVICE_DTS := an7581-q1000k
-  DEVICE_PACKAGES := fitblk nand-utils rtl826x-firmware
-  UBINIZE_OPTS := -E 5
+define Device/nokia_xg-040g-md-common-nwrt
+  $(call Device/FitImageLzma)
   BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  UBOOTENV_IN_UBI := 1
+  IMAGE_SIZE := 258048k
   KERNEL_IN_UBI := 1
-  KERNEL := kernel-bin | gzip
-  KERNEL_INITRAMFS := kernel-bin | lzma | \
-	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 128k
-  KERNEL_INITRAMFS_SUFFIX := -recovery.itb
-  IMAGES := sysupgrade.itb
-  # Match the Q1000K HTTP recovery upload buffer (256 MiB).
-  IMAGE_SIZE := 262144k
-  IMAGE/sysupgrade.itb := append-kernel | \
-	fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | \
-	append-metadata | check-size
-  SOC := an7581
+  PAGESIZE := 2048
+  UBINIZE_PARTS := bosa ri
+  DEVICE_PACKAGES := airoha-en7581-npu-firmware kmod-airoha-en7572 kmod-gpio-button-hotplug kmod-leds-gpio \
+	kmod-phy-airoha-en8811h kmod-regulator-userspace-consumer
 endef
-TARGET_DEVICES += quantum_q1000k-ubi
+
+define Device/nokia_xg-040g-md
+  $(call Device/nokia_xg-040g-md-common-nwrt)
+  DEVICE_VENDOR := Nokia Bell
+  DEVICE_MODEL := XG-040G-MD
+  DEVICE_ALT0_VENDOR := Nokia Bell
+  DEVICE_ALT0_MODEL := XG-140G-MD
+  DEVICE_DTS := an7581-nokia_xg-040g-md
+  DEVICE_PACKAGES += kmod-usb-ledtrig-usbport kmod-usb3
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  IMAGE/ubi.img := append-ubi
+endef
+TARGET_DEVICES += nokia_xg-040g-md
+
+define Device/nokia_xg-140g-tf
+  $(call Device/nokia_xg-040g-md-common-nwrt)
+  DEVICE_VENDOR := Nokia Bell
+  DEVICE_MODEL := XG-140G-TF
+  DEVICE_ALT0_VENDOR := Nokia Bell
+  DEVICE_ALT0_MODEL := XG-040G-TF
+  DEVICE_DTS := an7581-nokia_xg-140g-tf
+
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-ubi | check-size $$(IMAGE_SIZE)
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+endef
+TARGET_DEVICES += nokia_xg-140g-tf
+
+

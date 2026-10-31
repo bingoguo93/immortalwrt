@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+
+/ {
+	chosen {
+		bootargs = "console=ttyS0,115200 earlycon";
+		stdout-path = "serial0:115200n8";
+		rootdisk = <&ubi_fit>;
+	};
+};
+
+&partitions {
+	partition@0_all {
+		label = "all_flash";
+		reg = <0x0 0x10000000>;
+		read-only;
+	};
+
+	partition@0 {
+		label = "bl2";
+		reg = <0x0 0x20000>;
+		read-only;
+	};
+
+	partition@20000 {
+		label = "ubi";
+		reg = <0x20000 0xdda0000>;
+		compatible = "linux,ubi";
+
+		volumes {
+			ubi_fit: ubi-volume-fit {
+				volname = "fit";
+				phandle = <0x3e>;
+			};
+
+			ubi-volume-fip {
+				volname = "fip";
+			};
+
+			ubi_env: ubi-volume-ubootenv {
+				volname = "ubootenv";
+			};
+
+			ubi_env2: ubi-volume-ubootenv2 {
+				volname = "ubootenv2";
+			};
+		};
+	};
+
+	partition@dde0000 {
+		label = "reservearea";
+		reg = <0xdde0000 0x240000>;
+		read-only;
+
+		nvmem-layout {
+			compatible = "fixed-layout";
+			#address-cells = <0x1>;
+			#size-cells = <0x1>;
+
+			eeprom: eeprom@4c000 {
+				reg = <0x4c000 0x1000>;
+				phandle = <0x2b>;
+			};
+
+			macaddr_factory: macaddr@141024 {
+				compatible = "mac-base";
+				reg = <0x141024 0xc>;
+				#nvmem-cell-cells = <1>;
+			};
+
+		};
+	};
+};
+
+&ubi_env {
+	nvmem-layout {
+		compatible = "u-boot,env-redundant-bool-layout";
+	};
+};
+
+&ubi_env2 {
+	nvmem-layout {
+		compatible = "u-boot,env-redundant-bool-layout";
+	};
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&pcie1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie1_rst_pins>;
+
+	pcie@1,0 {
+		reg = <0x0800 0 0 0 0>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+
+		wifi@0,0 {
+			compatible = "mediatek,mt76";
+			reg = <0x0000 0 0 0 0>;
+
+			nvmem-cells = <&eeprom>;
+			nvmem-cell-names = "eeprom";
+
+			airoha,npu = <&npu>;
+			airoha,eth = <&eth>;
+
+			band@0 {
+				reg = <0>;
+
+				nvmem-cell-names = "mac-address";
+				nvmem-cells = <&macaddr_factory (2)>;
+			};
+
+			band@1 {
+				reg = <1>;
+
+				nvmem-cell-names = "mac-address";
+				nvmem-cells = <&macaddr_factory (3)>;
+			};
+		};
+	};
+};
+
+&pcie2 {
+	status = "disabled";
+};
